@@ -18,8 +18,9 @@ n_SG = rbinom(1, n, 0.5)
 n_RYGB = n - n_SG
 surgery_type = c(rep("SG", n_SG), rep("RYGB", n_RYGB))
 
-FFM_preop = 
-
-FFM_postop = 
-  
 weight_postop = rnorm(n, 11.5, 1) / 100 * weight_preop
+
+F_preop = rnorm(n, 50, 5) / 100
+F_postop = rnorm(n, 40, 8) / 100
+FFM_preop = (1 - F_preop) * weight_preop
+FFM_postop = (1 - F_postop) * weight_postop
