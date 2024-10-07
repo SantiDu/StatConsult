@@ -3,7 +3,7 @@ library(wakefield)  # library for generating random dataset
 n = 1150  # sample size
 
 # generate random age
-ages = age(n, x = 20:65, prob = NULL)
+ages = age(n, x = 20:65, prob = NULL)  # age range from 20 to 65
 
 # generate random gender
 n_male = rbinom(1, n, 0.2)
@@ -20,20 +20,24 @@ BMI_preop = rnorm(n, 43, 6)
 not_obese = BMI_preop <= 30
 BMI_preop[not_obese] = rnorm(sum(not_obese), 43, 1)  # everyone in the dataset is obese
 
-# calculate weight
-weight_preop = BMI_preop * eight^2
+# calculate pre operative weight
+weight_preop = BMI_preop * height^2
 
 # generate surgery types. SG: sleeve gastrectomy (SG). RYGB: Roux-en-Y gastric bypass
 n_SG = rbinom(1, n, 0.5)
 n_RYGB = n - n_SG
 surgery_type = c(rep("SG", n_SG), rep("RYGB", n_RYGB))
 
-# post surgery weight
-weight_postop = rnorm(n, 11.5, 1) / 100 * weight_preop
+# pre operative Fat Free Mass
+fat_pct_preop = rnorm(n, 50, 5) / 100
+FFM_preop = (1 - fat_pct_preop) * weight_preop
 
-Fat_preop = rnorm(n, 50, 5) / 100
-Fat_loss = rnorm(n, 10, 8) / 100
-FFM_preop = (1 - F_preop) * weight_preop
-FFM_postop = (1 - F_postop) * weight_postop
+# post operative protein intake
 
+# (post operative MVPA moderate-to-vigorous physical activity)
 
+# post operative fat free mass
+
+# post operative weight
+
+# FFML
