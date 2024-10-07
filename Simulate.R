@@ -1,0 +1,25 @@
+n = 1150
+
+age = rnorm(n, 42, 12)
+
+n_male = rbinom(1, n, 0.2)
+n_female = n - n_male
+gender = c(rep("M", n_male), rep("F", n_female))
+
+height_m = rnorm(n_male, 1.85, 0.1)
+height_f = rnorm(n_female, 1.70, 0.1)
+height = c(height_m, height_f)
+
+BMI_preop = rnorm(n, 43, 6)
+
+weight_preop = BMI_preop * height^2
+
+n_SG = rbinom(1, n, 0.5)
+n_RYGB = n - n_SG
+surgery_type = c(rep("SG", n_SG), rep("RYGB", n_RYGB))
+
+FFM_preop = 
+
+FFM_postop = 
+  
+weight_postop = rnorm(n, 11.5, 1) / 100 * weight_preop
