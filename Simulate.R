@@ -20,13 +20,13 @@ BMI_preop = rnorm(n, 43, 6)
 not_obese = BMI_preop <= 30
 BMI_preop[not_obese] = rnorm(sum(not_obese), 43, 1)  # everyone in the dataset is obese
 
-# calculate pre operative weight
-weight_preop = BMI_preop * height^2
-
 # generate surgery types. SG: sleeve gastrectomy (SG). RYGB: Roux-en-Y gastric bypass
 n_SG = rbinom(1, n, 0.5)
 n_RYGB = n - n_SG
 surgery_type = c(rep("SG", n_SG), rep("RYGB", n_RYGB))
+
+# calculate pre operative weight
+weight_preop = BMI_preop * height^2
 
 # pre operative Fat Free Mass
 fat_pct_preop = rnorm(n, 50, 5) / 100
