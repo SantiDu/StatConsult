@@ -102,4 +102,3 @@ summary(glm(EFFML ~ ., data = df, family = "binomial"))
 summary(glm(EFFML ~ ., data = df, family = "poisson"))
 summary(coxph(Surv(time, df$EFFML) ~ ., data = df, ties = "breslow"))
 
-rqlm(EFFML ~ ., data = df, family = "poisson")
