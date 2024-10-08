@@ -38,8 +38,8 @@ protein = rnorm(n, 50, 20)
 protein_less_than_0 = protein < 0
 protein[protein_less_than_0] = rnorm(sum(protein_less_than_0), 50, 1)
 
-# calorie intake
-total_calorie_intake = protein * 4 + rnorm(n, 1000 - protein * 4, 300)
+## calorie intake
+# total_calorie_intake = protein * 4 + rnorm(n, 1000 - protein * 4, 300)
 
 # post operative fat free mass
 
