@@ -43,7 +43,7 @@ while (sum(protein <= 0) > 0) {  # everyone in the data set eat at least some pr
 # fat_pct_T0 = rnorm(n, 50, 5) / 100
 # FFM_T0 = (1 - fat_pct_T0) * weight_T0
 # 
-# ## T2
+# ## T1
 # # weight
 # weight_T2 = weight_T0 - 
 # # Fat Free Mass
@@ -51,7 +51,7 @@ while (sum(protein <= 0) > 0) {  # everyone in the data set eat at least some pr
 # FFM_T0 = (1 - fat_pct_T0) * weight_T0
 # # FFML
 # 
-# ## T4
+# ## T3
 # # weight
 # 
 # # Fat Free Mass
