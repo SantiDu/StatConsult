@@ -1,0 +1,94 @@
+---
+title: "Data Simulation"
+author: "Eelco Wang - s3716414"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+### Simulating the dataset
+
+#### Sample Size
+```{r}
+# Setting the sample size
+n = 1150
+```
+
+#### Time periods
+```{r}
+# Define time points
+time = factor(rep(c("T0", "T1", "T3", "T6"), each = n))
+```
+
+#### Time-independent variables (Age, Male/Female, Height)
+```{r}
+# Generating the distribution for age
+age = rnorm(n, 42, 12)
+
+# Generating the distribution for male/female participants
+n_male = rbinom(1, n, 0.2)
+n_female = n - n_male
+
+# Generating Male and Female binary variable
+gender = c(rep("M", n_male), rep("F", n_female))
+gender = as.factor(gender)
+
+# Generating male and female height variables
+height_m = rnorm(n_male, 1.85, 0.1)
+height_f = rnorm(n_female, 1.70, 0.1)
+height = c(height_m, height_f)
+```
+
+#### Time-dependent variables
+```{r}
+# Generating BMI for each time period
+BMI_T0 = rnorm(n, 43.2, 6.5)
+BMI_T1 = rnorm(n, 38.6, 6.5)
+BMI_T3 = rnorm(n, 34.0, 6)
+BMI_T6 = rnorm(n, 32.0, 5.4)
+
+# Calculating weight in kg for each time period
+weight_T0 = BMI_T0 * (height^2)
+weight_T1 = BMI_T1 * (height^2)
+weight_T3 = BMI_T3 * (height^2)
+weight_T6 = BMI_T6 * (height^2)
+
+# Combine weights into a single vector
+weight = c(weight_T0, weight_T1, weight_T3, weight_T6)
+
+# Generating body fat percentage for each time period
+fat_perc_T0 = rnorm(n, 49.6, 5.1)
+fat_perc_T1 = rnorm(n, 46.6, 6.1)
+fat_perc_T3 = rnorm(n, 42.2, 7.1)
+fat_perc_T6 = rnorm(n, 39.0, 8.5)
+
+# Combine fat percentages into a single vector
+fat_perc = c(fat_perc_T0, fat_perc_T1, fat_perc_T3, fat_perc_T6)
+```
+
+```{r}
+# Calculate Fat Free Mass for each time period, using bodyfat and weight
+FFM = weight * (1 - fat_perc / 100)
+```
+
+#### Type of Surgery
+```{r}
+# Generating the two types of surgery
+n_SG = rbinom(1, n, 0.5)
+n_RYGB = n - n_SG
+surgery_type = c(rep("SG", n_SG), rep("RYGB", n_RYGB))
+```
+
+#### Create the dataframe
+```{r}
+# Combine data into a data frame
+simulated_data = data.frame(
+  time = time,
+  weight = weight,
+  FFM = FFM,
+  fat_percentage = fat_perc,
+  gender = rep(gender, 4),  # Repeat gender for all time points
+  height = rep(height, 4),   # Repeat height for all time points
+  age = rep(age, 4)  # Repeat age for all time points
+)
+```
+
