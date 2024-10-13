@@ -37,14 +37,6 @@ while (sum(calorie_intake <= 200)) {  # minimum calorie intake other than protei
 }
 total_calorie_intake = protein * 4 + calorie_intake
 
-## T0
-# weight
-weight_T0 = BMI * height^2
-# Fat Free Mass
-fat_pct_T0 = rnorm(n, 50, 5) / 100
-FM_T0 = weight_T0 * fat_pct_T0
-FFM_T0 = weight_T0 - FM_T0
-# data
 df = data.frame(
   ages = ages,
   gender = ifelse(gender == "M", 1, 0),
@@ -52,156 +44,81 @@ df = data.frame(
   BMI = BMI,
   protein_intake = protein,
   total_calorie_intake = total_calorie_intake,
-  protein_calorie = protein * total_calorie_intake,
-  time = NA
+  protein_calorie = protein * total_calorie_intake
 )
+
+
+
 # regression coefficient
-beta_weight_pct_loss = c(age = 0.02, 
-                         gender = 0.1, 
-                         surgery = 0.01, 
-                         BMI = 0.1, 
-                         protein_intake = -0.05, 
-                         total_calorie_intake = -0.01,
-                         protein_calorie = 0,
-                         time = 15,
-                         timesq = -0.01)
-beta_fat_pct_loss = c(age = 0.016 - 0.002, 
-                      gender = 0.08 + 0.01, 
-                      surgery = 0.008, 
-                      BMI = 0.08 + 0.05, 
-                      protein_intake = -0.04 - 0.01, 
-                      total_calorie_intake = -0.008,
-                      protein_calorie = 0 - 0.000005,
-                      time = 10,
-                      timesq = -0.2)
-# df$time = NULL
-# df$timesq = NULL
-# range((as.matrix(df) %*% beta_weight_pct_loss))
-# range(as.matrix(df) %*% beta_fat_pct_loss)
-for (t in 1:3) {
-  df$time = t
-  df$timesq = df$time^2
-  weight_pct_loss = (as.matrix(df) %*% beta_weight_pct_loss) - 2 + rnorm(n, 0, 0.05)
-  print(all(weight_pct_loss > 0))
-  print(median(weight_pct_loss))
-  
-  fat_pct_loss = (as.matrix(df) %*% beta_fat_pct_loss) - 1 + rnorm(n, 0, 0.05) 
-  print(all(fat_pct_loss > 0))
-  print(median(fat_pct_loss))
-  
-  print(all(weight_pct_loss - fat_pct_loss > 0))
-  print(median(fat_pct_loss / weight_pct_loss))
-  print(" ")
-}
+beta = c(ages = 0.5, 
+         gender = 3, 
+         surgery = 0.01, 
+         BMI = 1.7, 
+         protein_intake = -0.12, 
+         total_calorie_intake = -0.08,
+         protein_calorie = -0.0004)
 
+# Generate event (muscle mass loss)
+baseline_hazard_T1 = 20
+hazard_T1 = baseline_hazard_T1 * exp(as.matrix(df) %*% beta)
 
-EFFML = function(df, t, 
-                 beta_weight_pct_loss, beta_fat_pct_loss, 
-                 weight_T0, FFM_T0, 
-                 weight_previous, fat_previous) {
-  df$time = t
-  df$timesq = df$time^2
-  d = as.matrix(df)
-  # weight
-  weight_pct_loss = (as.matrix(df) %*% beta_weight_pct_loss) - 2 
-  weight_next = weight_previous * (1 - weight_pct_loss / 100)
-  # Fat Free Mass
-  fat_pct_loss = (as.matrix(df) %*% beta_fat_pct_loss) - 1 
-  fat_next = fat_previous * (1 - fat_pct_loss / 100)
-  FFM_next = weight_next - fat_next
-  # FFML
-  FFML_next = (FFM_next - FFM_T0) / (weight_next - weight_T0)
-  # excessive FFML
-  EFFML = abs(FFML_next) > 0.35
-  list(weight_next, fat_next, FFML_next) 
-}
+baseline_hazard_T3 = 50
+hazard_T3 = baseline_hazard_T3 * exp(as.matrix(df) %*% beta)
 
-l1 = EFFML(df, 1, 
-      beta_weight_pct_loss, beta_fat_pct_loss, 
-      weight_T0, FFM_T0, 
-      weight_T0, FM_T0)
+baseline_hazard_T6 = 80
+hazard_T6 = baseline_hazard_T6 * exp(as.matrix(df) %*% beta)
 
-weight_T1 = l1[[1]]
-fat_T1 = l1[[2]]
-mean(l1[[3]])
+# Time-to-event data with event indicator
+event_T1 = ifelse((1 - exp(-hazard_T1 * 1)) > 0.5, 1, 0)
+event_T3 = ifelse((1 - exp(-hazard_T3 * 1)) > 0.5, 1, 0)
+event_T6 = ifelse((1 - exp(-hazard_T6 * 1)) > 0.5, 1, 0)
 
-l3 = EFFML(df, 2, 
-      beta_weight_pct_loss, beta_fat_pct_loss, 
-      weight_T0, FFM_T0, 
-      weight_T1, fat_T1)
+# check
+sum((event_T1 == 1) & (event_T3 != 1))
+sum((event_T1 == 1) & (event_T6 != 1))
+sum((event_T3 == 1) & (event_T6 != 1))
+# check
+mean(event_T1)
+mean(event_T3)
+mean(event_T6)
 
-weight_T3 = l3[[1]]
-fat_T3 = l3[[2]]
-mean(l3[[3]])
-
-l6 = EFFML(df, 3, 
-      beta_weight_pct_loss, beta_fat_pct_loss, 
-      weight_T0, FFM_T0, 
-      weight_T3, fat_T3)
-
-mean(l6[[3]])
-## T3
-# time difference is 2
-df$time = 2
-df$timesq = df$time^2
-d = as.matrix(df)
-# weight
-weight_pct_loss = (as.matrix(df) %*% beta_weight_pct_loss) + 10 + rnorm(n, 0, 0.1)
-weight_T3 = weight_T1 * (1 - weight_pct_loss / 100)
-# Fat Free Mass
-fat_pct_loss = (as.matrix(df) %*% beta_fat_pct_loss) + 6 + rnorm(n, 0, 0.1)
-fat_pct_T3 = fat_pct_T1 - fat_pct_loss / 100
-FFM_T3 = (1 - fat_pct_T3) * weight_T3
-# FFML
-FFML_T3 = (FFM_T3 - FFM_T0) / (weight_T3 - weight_T0)
-# excessive FFML
-EFFML_T3 = abs(FFML_T3) > 0.25
-mean(EFFML_T3)
-
-## T6
-# time difference is 3
-df$time = 3
-df$timesq = df$time^2
-d = as.matrix(df)
-# weight
-weight_pct_loss = (as.matrix(df) %*% beta_weight_pct_loss) + 8 + rnorm(n, 0, 0.1)
-weight_T6 = weight_T3 * (1 - weight_pct_loss / 100)
-# Fat Free Mass
-fat_pct_loss = (as.matrix(df) %*% beta_fat_pct_loss) + 4 + rnorm(n, 0, 0.1)
-fat_pct_T6 = fat_pct_T3 - fat_pct_loss / 100
-FFM_T6 = (1 - fat_pct_T6) * weight_T6
-# FFML
-FFML_T6 = (FFM_T6 - FFM_T0) / (weight_T6 - weight_T0)
-# excessive FFML
-EFFML_T6 = abs(FFML_T6) > 0.25
-mean(EFFML_T6)
-
-
-### putting them together
-
-
-## generate outcome with linear regression
-
-
-
+# time
+time = numeric(n)
+time[event_T1 == 1] = 1
+time[(event_T3 == 1) & (event_T1 != 1)] = 3
+time[(event_T6 == 1) & (event_T3 != 1) & (event_T1) != 1] = 6
+time[(event_T6 == 0)] = 6
+# status
+status = event_T6
 
 #########################################################
 #################### modeling ###########################
 #########################################################
 library(survival)
 ## Cox model
-kfit1 <- coxph(Surv(time, status) ~ age + sex, kidney, ties='breslow')
+cox <- coxph(Surv(time, status) ~ ., df, ties = 'breslow')
 ## Poisson model
-utime <- sort(unique(kidney$time[kidney$status==1])) # unique deaths
-kdata3 <- survSplit(Surv(time, status) ~., data=kidney, cut=utime, episode="interval")
-kdata3 <- subset(kdata3, time == c(utime,0)[interval]) # remove partials
-kfit3 <- glm(status ~ age + sex + factor(interval) - 1, family=poisson, data=kdata3)
+pois <- glm(status ~ 0 +
+              ages + 
+              gender + 
+              surgery + 
+              BMI + 
+              protein_intake +
+              total_calorie_intake +
+              protein_calorie +
+              as.factor(time), family=poisson, data=df_pois)
+
+summary(cox)
+summary(pois)
+
 
 ## Cumulative hazard
-baseline <- basehaz(cox_, centered = FALSE)
+baseline <- basehaz(cox, centered = FALSE)
 cumhaz_Cox = unique(baseline$hazard)
-cumhaz_Poisson = unname(cumsum(exp(kfit3$coefficients[-1:-2])))
+cumhaz_Poisson = unname(cumsum(exp(pois$coefficients[-1:-7])))
 
 ## Survival probability
 survival_Cox = exp(-cumhaz_Cox)
 survival_Poisson = exp(-cumhaz_Poisson)
+survival_Cox
+survival_Poisson
