@@ -3,6 +3,8 @@ set.seed(12)
 
 n = 1150  # sample size
 
+
+#########################generate covariates:
 # age
 ages = age(n, x = 20:65, prob = NULL)  # age range from 20 to 65
 # gender
@@ -48,7 +50,7 @@ df = data.frame(
 )
 
 
-
+#########################################generate outcome
 # regression coefficient
 beta = c(ages = 0.5, 
          gender = 3, 
@@ -82,6 +84,13 @@ mean(event_T1)
 mean(event_T3)
 mean(event_T6)
 
+
+
+
+
+
+############################################data for modeling
+
 # time
 time = numeric(n)
 time[event_T1 == 1] = 1
@@ -91,26 +100,27 @@ time[(event_T6 == 0)] = 6
 # status
 status = event_T6
 
+# censor = 0 for each interval
+df_pois = cbind(df, time, status) 
+df_pois_censor_T1 = df_pois[event_T1 == 0, ]
+df_pois_censor_T1$time = 1
+df_pois_censor_T1$status = 0
+df_pois_censor_T3 = df_pois[event_T3 == 0 & event_T1 == 0, ]
+df_pois_censor_T3$time = 3
+df_pois_censor_T3$status = 0
+df_pois = rbind(df_pois, df_pois_censor_T1, df_pois_censor_T3)
+df_pois$time = as.factor(df_pois$time)
 #########################################################
 #################### modeling ###########################
 #########################################################
 library(survival)
 ## Cox model
-cox <- coxph(Surv(time, status) ~ ., df, ties = 'breslow')
+cox = coxph(Surv(time, status) ~ ., df, ties = 'breslow')
 ## Poisson model
-pois <- glm(status ~ 0 +
-              ages + 
-              gender + 
-              surgery + 
-              BMI + 
-              protein_intake +
-              total_calorie_intake +
-              protein_calorie +
-              as.factor(time), family=poisson, data=df_pois)
+pois = glm(status ~ 0 + ., family = poisson, data = df_pois)
 
 summary(cox)
 summary(pois)
-
 
 ## Cumulative hazard
 baseline <- basehaz(cox, centered = FALSE)
