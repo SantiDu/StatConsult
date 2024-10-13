@@ -1,4 +1,8 @@
 library(wakefield)  # library for generating random dataset
+library(survival)
+library(ggplot2)
+library(survminer)
+
 set.seed(12)
 
 n = 1150  # sample size
@@ -113,22 +117,94 @@ df_pois$time = as.factor(df_pois$time)
 #########################################################
 #################### modeling ###########################
 #########################################################
-library(survival)
 ## Cox model
 cox = coxph(Surv(time, status) ~ ., df, ties = 'breslow')
 ## Poisson model
 pois = glm(status ~ 0 + ., family = poisson, data = df_pois)
 
+
 summary(cox)
 summary(pois)
 
-## Cumulative hazard
-baseline <- basehaz(cox, centered = FALSE)
+
+########################################################
+################ Comparing cumhaz and survival
+########################################################
+## Cumulative hazard: baseline
+baseline = basehaz(cox, centered = F)
 cumhaz_Cox = unique(baseline$hazard)
 cumhaz_Poisson = unname(cumsum(exp(pois$coefficients[-1:-7])))
+cumhaz_Cox == cumhaz_Poisson
 
-## Survival probability
-survival_Cox = exp(-cumhaz_Cox)
-survival_Poisson = exp(-cumhaz_Poisson)
-survival_Cox
-survival_Poisson
+## Cumulative hazard: centered
+# Poisson model
+df_centered = colMeans(df)
+df_centered["gender"] = 0
+df_centered["surgery"] = 0
+cumhaz_Poi_c = cumsum(exp(pois$coefficients[-1:-7]) * as.vector(exp(df_centered %*% pois$coefficients[1:7])))
+
+H = data.frame(
+  time = c(0, 1, 3, 6),
+  cumhaz = c(0, cumhaz_Poi_c)
+)
+ggplot(H, aes(x = time, y = cumhaz)) +
+  geom_step(color = "blue") +    # Stair plot using geom_step
+  labs(title = "Cumulative Hazard - Poisson Model",
+       x = "Time",
+       y = "Cumulative Hazard") +
+  ylim(c(0, 0.32)) +
+  theme_minimal()
+# Cox model
+surv_fit = survfit(cox)
+ggsurvplot(surv_fit, 
+           data = df,
+           conf.int = TRUE,          # Add confidence intervals
+           fun = "cumhaz",
+           palette = "red",          # Customize color
+           ggtheme = theme_minimal(), # Minimal theme
+           title = "Cumulative Hazard - Cox Model",  # Title for the plot
+           xlab = "Time",             # X-axis label
+           ylab = "Cumulative Hazard",
+           legend = "none")  # Y-axis label
+
+## Survival
+# Poisson
+survival_Poisson = exp(-cumhaz_Poi_c)
+S = data.frame(
+  time = c(0, 1, 3, 6),
+  survival = c(1, survival_Poisson)
+)
+ggplot(S, aes(x = time, y = survival)) +
+  geom_step(color = "blue") +    # Stair plot using geom_step
+  labs(title = "Survival Curve - Poisson Model",
+       x = "Time",
+       y = "Survival Probability") +
+  ylim(c(0, 1)) +
+  theme_minimal()
+# Cox
+ggsurvplot(surv_fit, 
+           data = df,
+           conf.int = TRUE,          # Add confidence intervals
+           palette = "red",          # Customize color
+           ggtheme = theme_minimal(), # Minimal theme
+           title = "Survival Curve - Cox Model",  # Title for the plot
+           xlab = "Time",             # X-axis label
+           ylab = "Survival Probability", # Y-axis label
+           legend = "none") 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
