@@ -29,19 +29,18 @@ while (sum(BMI <= 30) > 0) {  # everyone in the dataset is obese
   not_obese = BMI <= 30
   BMI[not_obese] = rnorm(sum(not_obese), 45, 5)  
 }
-# protein intake
+# protein intake, in grams
 protein = rnorm(n, 50, 10)
 while (sum(protein <= 0) > 0) {  # everyone in the data set eat at least some protein
   protein_leq_0 = protein <= 0
   protein[protein_leq_0] = rnorm(sum(protein_leq_0), 50, 10)
 }
-# calorie intake
+# calorie intake except protein, in kcal
 calorie_intake = rnorm(n, 1000 - protein * 4, 100)
 while (sum(calorie_intake <= 200)) {  # minimum calorie intake other than protein
   calorie_leq_200 = calorie_intake <= 200
   calorie_intake[calorie_leq_200] = rnorm(sum(calorie_leq_200), 1000 - protein[calorie_leq_200] * 4, 100)
 }
-total_calorie_intake = protein * 4 + calorie_intake
 
 df = data.frame(
   ages = ages,
@@ -49,41 +48,46 @@ df = data.frame(
   surgery = ifelse(surgery_type == "RYGB", 1, 0),
   BMI = BMI,
   protein_intake = protein,
-  total_calorie_intake = total_calorie_intake,
-  protein_calorie = protein * total_calorie_intake
+  calorie_intake = calorie_intake
 )
 
 
 #########################################generate outcome
 # regression coefficient
-beta = c(ages = 0.5, 
-         gender = 3, 
-         surgery = 0.01, 
-         BMI = 1.7, 
-         protein_intake = -0.12, 
-         total_calorie_intake = -0.08,
-         protein_calorie = -0.0004)
+beta = c(ages = 0.05, 
+         gender = 0.5, 
+         surgery = 0, 
+         BMI = 0.25, 
+         protein_intake = -0.01, 
+         calorie_intake = -0.02)
 
 # Generate event (muscle mass loss)
-baseline_hazard_T1 = 20
+baseline_hazard_T1 = 0.1
 hazard_T1 = baseline_hazard_T1 * exp(as.matrix(df) %*% beta)
+sum(round(hazard_T1))
+sum(round(hazard_T1) > 0)
 
-baseline_hazard_T3 = 50
+baseline_hazard_T3 = 0.15
 hazard_T3 = baseline_hazard_T3 * exp(as.matrix(df) %*% beta)
+sum(round(hazard_T3))
+sum(round(hazard_T3) > 0)
 
-baseline_hazard_T6 = 80
+baseline_hazard_T6 = 0.3
 hazard_T6 = baseline_hazard_T6 * exp(as.matrix(df) %*% beta)
+sum(round(hazard_T6))
+sum(round(hazard_T6) > 0)
+
 
 # Time-to-event data with event indicator
-event_T1 = ifelse((1 - exp(-hazard_T1 * 1)) > 0.5, 1, 0)
-event_T3 = ifelse((1 - exp(-hazard_T3 * 1)) > 0.5, 1, 0)
-event_T6 = ifelse((1 - exp(-hazard_T6 * 1)) > 0.5, 1, 0)
+event_T1 = ifelse(round(hazard_T1) > 0, 1, 0)
+event_T3 = ifelse(round(hazard_T3) > 0, 1, 0)
+event_T6 = ifelse(round(hazard_T6) > 0, 1, 0)
 
-# check
+# check. All should be 0.
 sum((event_T1 == 1) & (event_T3 != 1))
 sum((event_T1 == 1) & (event_T6 != 1))
 sum((event_T3 == 1) & (event_T6 != 1))
-# check
+# check. Since hazard_T1 < hazard_T2 < hazard_T3, mean values should increase
 mean(event_T1)
 mean(event_T3)
 mean(event_T6)
@@ -133,15 +137,15 @@ summary(pois)
 ## Cumulative hazard: baseline
 baseline = basehaz(cox, centered = F)
 cumhaz_Cox = unique(baseline$hazard)
-cumhaz_Poisson = unname(cumsum(exp(pois$coefficients[-1:-7])))
-cumhaz_Cox == cumhaz_Poisson
+cumhaz_Poisson = unname(cumsum(exp(pois$coefficients[-1:-6])))
+cumhaz_Cox - cumhaz_Poisson < 1e-6
 
 ## Cumulative hazard: centered
 # Poisson model
 df_centered = colMeans(df)
 df_centered["gender"] = 0
 df_centered["surgery"] = 0
-cumhaz_Poi_c = cumsum(exp(pois$coefficients[-1:-7]) * as.vector(exp(df_centered %*% pois$coefficients[1:7])))
+cumhaz_Poi_c = cumsum(exp(pois$coefficients[-1:-6]) * as.vector(exp(df_centered %*% pois$coefficients[1:6])))
 
 H = data.frame(
   time = c(0, 1, 3, 6),
