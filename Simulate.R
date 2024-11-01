@@ -67,6 +67,8 @@ baseline_hazard_T1 = 0.5  ## set hazard rate so that the first period has ~ 10% 
 # baseline_hazard_T1 = 0.1  ## set hazard rate so the the total events is about 3% 
                             ## (rare enough for the binomial approximate Poisson)
 hazard_T1 = baseline_hazard_T1 * exp(as.matrix(df) %*% beta) + noise
+# the more the following results are similar, 
+# the more the cox&poisson estimates are closer to the original coefficients
 sum(trunc(hazard_T1))
 sum(trunc(hazard_T1) > 0)
 
@@ -74,6 +76,8 @@ baseline_hazard_T3 = 1.5  ## the second period has ~ 10% new events
 # baseline_hazard_T3 = 0.2  ## set hazard rate so the the total events is about 3% 
                             ## (rare enough for the binomial approximate Poisson)
 hazard_T3 = baseline_hazard_T3 * exp(as.matrix(df) %*% beta) + noise
+# the more the following results are similar, 
+# the more the cox&poisson estimates are closer to the original coefficients
 sum(trunc(hazard_T3))
 sum(trunc(hazard_T3) > 0)
 
@@ -81,6 +85,8 @@ baseline_hazard_T6 = 4  ## the third period has ~ 10% new events
 # baseline_hazard_T6 = 0.3  ## set hazard rate so the the total events is about 3% 
                             ## (rare enough for the binomial approximate Poisson)
 hazard_T6 = baseline_hazard_T6 * exp(as.matrix(df) %*% beta) + noise
+# the more the following results are similar, 
+# the more the cox&poisson estimates are closer to the original coefficients
 sum(trunc(hazard_T6))
 sum(trunc(hazard_T6) > 0)
 
