@@ -60,28 +60,33 @@ beta = c(ages = 0.05,
          BMI = 0.25, 
          protein_intake = -0.01, 
          calorie_intake = -0.02)
-
+noise = rnorm(n, 0, 0.5)  ## add noise so that the problem is not linearly separable 
+                          ## for the logistic regression to converge
 # Generate event (muscle mass loss)
-baseline_hazard_T1 = 0.1
-hazard_T1 = baseline_hazard_T1 * exp(as.matrix(df) %*% beta)
-sum(round(hazard_T1))
-sum(round(hazard_T1) > 0)
+baseline_hazard_T1 = 0.5  ## set hazard rate so that the first period has ~ 10% events
+# baseline_hazard_T1 = 0.1  ## set hazard rate so the the total events is less than 3% 
+                            ## (rare enough for the binomial approximate Poisson)
+hazard_T1 = baseline_hazard_T1 * exp(as.matrix(df) %*% beta) + noise
+sum(trunc(hazard_T1))
+sum(trunc(hazard_T1) > 0)
 
-baseline_hazard_T3 = 0.15
-hazard_T3 = baseline_hazard_T3 * exp(as.matrix(df) %*% beta)
-sum(round(hazard_T3))
-sum(round(hazard_T3) > 0)
+baseline_hazard_T3 = 1.5  ## the second period has ~ 10% new events
+# baseline_hazard_T3 = 0.2 
+hazard_T3 = baseline_hazard_T3 * exp(as.matrix(df) %*% beta) + noise
+sum(trunc(hazard_T3))
+sum(trunc(hazard_T3) > 0)
 
-baseline_hazard_T6 = 0.3
-hazard_T6 = baseline_hazard_T6 * exp(as.matrix(df) %*% beta)
-sum(round(hazard_T6))
-sum(round(hazard_T6) > 0)
+baseline_hazard_T6 = 4  ## the third period has ~ 10% new events
+# baseline_hazard_T6 = 0.3
+hazard_T6 = baseline_hazard_T6 * exp(as.matrix(df) %*% beta) + noise
+sum(trunc(hazard_T6))
+sum(trunc(hazard_T6) > 0)
 
 
 # Time-to-event data with event indicator
-event_T1 = ifelse(round(hazard_T1) > 0, 1, 0)
-event_T3 = ifelse(round(hazard_T3) > 0, 1, 0)
-event_T6 = ifelse(round(hazard_T6) > 0, 1, 0)
+event_T1 = ifelse(trunc(hazard_T1) > 0, 1, 0)
+event_T3 = ifelse(trunc(hazard_T3) > 0, 1, 0)
+event_T6 = ifelse(trunc(hazard_T6) > 0, 1, 0)
 
 # check. All should be 0.
 sum((event_T1 == 1) & (event_T3 != 1))
@@ -108,7 +113,8 @@ time[(event_T6 == 0)] = 6
 # status
 status = event_T6
 
-# censor = 0 for each interval
+# make the data set for Poisson and logistic regression
+# split the dataset at times when any event happened, and set nonevent to 0 (censored) 
 df_pois = cbind(df, time, status) 
 df_pois_censor_T1 = df_pois[event_T1 == 0, ]
 df_pois_censor_T1$time = 1
@@ -118,6 +124,8 @@ df_pois_censor_T3$time = 3
 df_pois_censor_T3$status = 0
 df_pois = rbind(df_pois, df_pois_censor_T1, df_pois_censor_T3)
 df_pois$time = as.factor(df_pois$time)
+
+mean(df_pois$status)  ## over all event rate
 #########################################################
 #################### modeling ###########################
 #########################################################
@@ -125,11 +133,12 @@ df_pois$time = as.factor(df_pois$time)
 cox = coxph(Surv(time, status) ~ ., df, ties = 'breslow')
 ## Poisson model
 pois = glm(status ~ 0 + ., family = poisson, data = df_pois)
-
+## logistic regression
+lr = glm(status ~ 0 + ., family = binomial, data = df_pois)
 
 summary(cox)
 summary(pois)
-
+summary(lr)
 
 ########################################################
 ################ Comparing cumhaz and survival
