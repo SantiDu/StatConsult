@@ -1,14 +1,17 @@
 library(wakefield)  # library for generating random dataset
 library(survival)
 library(ggplot2)
-library(survminer)
+library(survminer)  # library for plotting hazard and survival
 
 set.seed(12)
 
 n = 1150  # sample size
 
-
-#########################generate covariates:
+################################################################################
+################################################################################
+############################ generate covariates ###############################
+################################################################################
+################################################################################
 # age
 ages = age(n, x = 20:65, prob = NULL)  # age range from 20 to 65
 # gender
@@ -52,110 +55,131 @@ df = data.frame(
 )
 
 
-#########################################generate outcome
-# regression coefficient
+################################################################################
+############################# generate outcome #################################
+################################################################################
+# regression coefficient, these are completely arbitrary
 beta = c(ages = 0.05, 
          gender = 0.5, 
          surgery = 0, 
          BMI = 0.25, 
          protein_intake = -0.01, 
          calorie_intake = -0.02)
-noise = rnorm(n, 0, 0.5)  ## add noise so that the problem is not linearly separable 
-                          ## for the logistic regression to converge
-# Generate event (muscle mass loss)
-baseline_hazard_T1 = 0.5  ## set hazard rate so that the first period has ~ 10% events
-# baseline_hazard_T1 = 0.1  ## set hazard rate so the the total events is about 3% 
-                            ## (rare enough for the binomial approximate Poisson)
-hazard_T1 = baseline_hazard_T1 * exp(as.matrix(df) %*% beta) + noise
+
+noise = rnorm(n, 0, 0.5) # add noise so that the problem is not linearly separable
+                         # (for logistic regression to converge)
+
+hazard = function(baseline_hazard, df, beta, noise) {
+  baseline_hazard * exp(as.matrix(df) %*% beta) + noise
+}
+
+baseline_hazards = c(0.5, 1.5, 4)  # set hazard rate so that the period has ~ 10% new events
+baseline_hazards_rare = c(0.1, 0.2, 0.3)  # set hazard rate so the the total events is about 3% 
+                                          # (rare enough for the binomial to approximate Poisson)
+
+hazard_T1 = hazard(baseline_hazards[1], df, beta, noise)
+hazard_T3 = hazard(baseline_hazards[2], df, beta, noise)
+hazard_T6 = hazard(baseline_hazards[3], df, beta, noise)
+# for rare events (3%), uncomment the following code
+# hazard_T1 = hazard(baseline_hazards_rare[1], df, beta, noise)
+# hazard_T3 = hazard(baseline_hazards_rare[2], df, beta, noise)
+# hazard_T6 = hazard(baseline_hazards_rare[3], df, beta, noise)
+
+
 # the more the following results are similar, 
 # the more the cox&poisson estimates are closer to the original coefficients
 sum(trunc(hazard_T1))
 sum(trunc(hazard_T1) > 0)
-
-baseline_hazard_T3 = 1.5  ## the second period has ~ 10% new events
-# baseline_hazard_T3 = 0.2  ## set hazard rate so the the total events is about 3% 
-                            ## (rare enough for the binomial approximate Poisson)
-hazard_T3 = baseline_hazard_T3 * exp(as.matrix(df) %*% beta) + noise
 # the more the following results are similar, 
 # the more the cox&poisson estimates are closer to the original coefficients
 sum(trunc(hazard_T3))
 sum(trunc(hazard_T3) > 0)
-
-baseline_hazard_T6 = 4  ## the third period has ~ 10% new events
-# baseline_hazard_T6 = 0.3  ## set hazard rate so the the total events is about 3% 
-                            ## (rare enough for the binomial approximate Poisson)
-hazard_T6 = baseline_hazard_T6 * exp(as.matrix(df) %*% beta) + noise
 # the more the following results are similar, 
 # the more the cox&poisson estimates are closer to the original coefficients
 sum(trunc(hazard_T6))
 sum(trunc(hazard_T6) > 0)
 
 
-# Time-to-event data with event indicator
-event_T1 = ifelse(trunc(hazard_T1) > 0, 1, 0)
-event_T3 = ifelse(trunc(hazard_T3) > 0, 1, 0)
-event_T6 = ifelse(trunc(hazard_T6) > 0, 1, 0)
+trunc_hazard = function(hazard_T1, hazard_T3, hazard_T6) {
+  # event indicator
+  event_T1 = ifelse(trunc(hazard_T1) > 0, 1, 0)
+  event_T3 = ifelse(trunc(hazard_T3) > 0, 1, 0)
+  event_T6 = ifelse(trunc(hazard_T6) > 0, 1, 0)
+  # check. All should be 0.
+  print(sum((event_T1 == 1) & (event_T3 != 1)))
+  print(sum((event_T1 == 1) & (event_T6 != 1)))
+  print(sum((event_T3 == 1) & (event_T6 != 1)))
+  # check. Since hazard_T1 < hazard_T2 < hazard_T3, mean values should increase
+  print(mean(event_T1))
+  print(mean(event_T3))
+  print(mean(event_T6))
+  
+  list(event_T1 = event_T1, event_T3 = event_T3, event_T6 = event_T6)
+}
 
-# check. All should be 0.
-sum((event_T1 == 1) & (event_T3 != 1))
-sum((event_T1 == 1) & (event_T6 != 1))
-sum((event_T3 == 1) & (event_T6 != 1))
-# check. Since hazard_T1 < hazard_T2 < hazard_T3, mean values should increase
-mean(event_T1)
-mean(event_T3)
-mean(event_T6)
+events = trunc_hazard(hazard_T1, hazard_T3, hazard_T6)
+event_T1 = events$event_T1
+event_T3 = events$event_T3
+event_T6 = events$event_T6
 
 
-
-
-
-
-############################################data for modeling
+################################################################################
+############################# data for modeling ################################
+################################################################################
 
 # time
-time = numeric(n)
-time[event_T1 == 1] = 1
-time[(event_T3 == 1) & (event_T1 != 1)] = 3
-time[(event_T6 == 1) & (event_T3 != 1) & (event_T1) != 1] = 6
-time[(event_T6 == 0)] = 6
+create_time = function(event_T1, event_T3, event_T6) {
+  time = numeric(n)
+  time[event_T1 == 1] = 1
+  time[(event_T3 == 1) & (event_T1 != 1)] = 3
+  time[(event_T6 == 1) & (event_T3 != 1) & (event_T1) != 1] = 6
+  time[(event_T6 == 0)] = 6
+  time
+}
+time = create_time(event_T1, event_T3, event_T6)
 # status
 status = event_T6
 
 # make the data set for Poisson and logistic regression
-# split the dataset at times when any event happened, and set nonevent to 0 (censored) 
-df_pois = cbind(df, time, status) 
-df_pois_censor_T1 = df_pois[event_T1 == 0, ]
-df_pois_censor_T1$time = 1
-df_pois_censor_T1$status = 0
-df_pois_censor_T3 = df_pois[event_T3 == 0 & event_T1 == 0, ]
-df_pois_censor_T3$time = 3
-df_pois_censor_T3$status = 0
-df_pois = rbind(df_pois, df_pois_censor_T1, df_pois_censor_T3)
-df_pois$time = as.factor(df_pois$time)
+# split the dataset at times when any event happened, and set nonevent to 0 (censored)
+make_dataset_Poisson = function(df_time_event, event_T1, event_T3, event_T6) {
+  df_pois_censor_T1 = df_time_event[event_T1 == 0, ]
+  df_pois_censor_T1$time = 1
+  df_pois_censor_T1$status = 0
+  df_pois_censor_T3 = df_time_event[event_T3 == 0 & event_T1 == 0, ]
+  df_pois_censor_T3$time = 3
+  df_pois_censor_T3$status = 0
+  df_pois = rbind(df_time_event, df_pois_censor_T1, df_pois_censor_T3)
+  df_pois$time = as.factor(df_pois$time)
+  df_pois
+}
+df_pois = make_dataset_Poisson(cbind(df, time, status), event_T1, event_T3, event_T6)
 
-mean(df_pois$status)  ## over all event rate
-#########################################################
-#################### modeling ###########################
-#########################################################
-## Cox model
+mean(df_pois$status)  ## overall event rate
+################################################################################
+################################################################################
+################################ modeling ######################################
+################################################################################
+################################################################################
+# Cox model
 cox = coxph(Surv(time, status) ~ ., df, ties = 'breslow')
-## Poisson model
+# Poisson model
 pois = glm(status ~ 0 + ., family = poisson, data = df_pois)
-## logistic regression
+# logistic regression
 lr = glm(status ~ 0 + ., family = binomial, data = df_pois)
 
 summary(cox)
 summary(pois)
 summary(lr)
 
-########################################################
-################ Comparing cumhaz and survival
-########################################################
+################################################################################
+####################### Comparing cumhaz and survival ##########################
+################################################################################
 ## Cumulative hazard: baseline
 baseline = basehaz(cox, centered = F)
 cumhaz_Cox = unique(baseline$hazard)
 cumhaz_Poisson = unname(cumsum(exp(pois$coefficients[-1:-6])))
-cumhaz_Cox - cumhaz_Poisson < 1e-6
+abs(cumhaz_Cox - cumhaz_Poisson) < 1e-6
 
 ## Cumulative hazard: centered
 # Poisson model
@@ -217,15 +241,81 @@ ggsurvplot(surv_fit,
 
 
 
+################################################################################
+################################################################################
+############################ Stratified Model ##################################
+################################################################################
+################################################################################
+# note that for convenience, no new dataset is created
+cox = coxph(Surv(time, status) ~ ages + 
+                                 strata(gender) + 
+                                 BMI + 
+                                 protein_intake + 
+                                 calorie_intake,
+            data = df, 
+            ties = 'breslow')
+pois = glm(status ~ 0 +
+                    ages + 
+                    gender * time +
+                    BMI + 
+                    protein_intake + 
+                    calorie_intake, 
+           family = poisson, 
+           data = df_pois)
+
+summary(cox)
+summary(pois)
+################################################################################
+################################################################################
+######################### time varying coefficient #############################
+################################################################################
+################################################################################
+
+## create data
+# hazard with changing BMI
+BMI_T1 = BMI - rnorm(n, 5, 1)
+BMI_T3 = BMI_T1 - rnorm(n, 4, 1)
+df_copy = df
+baseline_hazards = c(0.2, 5, 20)
+hazard_T1 = hazard(baseline_hazards[1], df_copy, beta, noise)
+df_copy$BMI= BMI_T1
+hazard_T3 = hazard(baseline_hazards[2], df_copy, beta, noise)
+df_copy$BMI = BMI_T3
+hazard_T6 = hazard(baseline_hazards[3], df_copy, beta, noise)
+# events by time
+events = trunc_hazard(hazard_T1, hazard_T3, hazard_T6)
+event_T1 = events$event_T1
+event_T3 = events$event_T3
+event_T6 = events$event_T6
+# time
+time = create_time(event_T1, event_T3, event_T6)
+# status
+status = event_T6
 
 
+## create data for Poisson model
+df = cbind(df, time, status, BMI_T1, BMI_T3)
+df$BMI_T0 = df$BMI
+df_pois = make_dataset_Poisson(df, event_T1, event_T3, event_T6)
+df_pois[df_pois$time == 1, "BMI"] = df_pois[df_pois$time == 1, "BMI_T0"]
+df_pois[df_pois$time == 3, "BMI"] = df_pois[df_pois$time == 3, "BMI_T1"]
+df_pois[df_pois$time == 6, "BMI"] = df_pois[df_pois$time == 6, "BMI_T3"]
 
+## create data for cox model
+start_time = numeric(nrow(df_pois))
+start_time[df_pois$time == 1] = 0
+start_time[df_pois$time == 3] = 1
+start_time[df_pois$time == 6] = 3
 
+end_time = numeric(nrow(df_pois))
+end_time[df_pois$time == 1] = 1
+end_time[df_pois$time == 3] = 3
+end_time[df_pois$time == 6] = 6
 
+## cox model
+cox = coxph(Surv(start_time, end_time, status) ~ BMI, data = df_pois, ties = 'breslow')
+## Poisson model
+pois <- glm(status ~ 0 + time + BMI, family = poisson, data = df_pois)
 
-
-
-
-
-
-
+summary(cox)
+summary(pois)
