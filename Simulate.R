@@ -315,7 +315,7 @@ end_time[df_pois$time == 6] = 6
 ## cox model
 cox = coxph(Surv(start_time, end_time, status) ~ BMI, data = df_pois, ties = 'breslow')
 ## Poisson model
-pois <- glm(status ~ 0 + time + BMI, family = poisson, data = df_pois)
+pois = glm(status ~ 0 + time + BMI, family = poisson, data = df_pois)
 
 summary(cox)
 summary(pois)
