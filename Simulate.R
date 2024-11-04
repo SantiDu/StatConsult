@@ -256,7 +256,8 @@ cox = coxph(Surv(time, status) ~ ages +
             ties = 'breslow')
 pois = glm(status ~ 0 +
                     ages + 
-                    gender * time +
+                    time +
+                    gender:time +
                     BMI + 
                     protein_intake + 
                     calorie_intake, 
