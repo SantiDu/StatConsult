@@ -197,7 +197,7 @@ ggplot(H, aes(x = time, y = cumhaz)) +
   labs(title = "Cumulative Hazard - Poisson Model",
        x = "Time",
        y = "Cumulative Hazard") +
-  ylim(c(0, 0.32)) +
+  ylim(c(0, 0.16)) +
   theme_minimal()
 # Cox model
 surv_fit = survfit(cox)
