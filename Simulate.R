@@ -2,6 +2,9 @@ library(wakefield)  # library for generating random dataset
 library(survival)
 library(ggplot2)
 library(survminer)  # library for plotting hazard and survival
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
 
 set.seed(12)
 
@@ -238,9 +241,6 @@ ggsurvplot(surv_fit,
            legend = "none") 
 
 
-
-
-
 ################################################################################
 ################################################################################
 ############################ Stratified Model ##################################
@@ -266,6 +266,68 @@ pois = glm(status ~ 0 +
 
 summary(cox)
 summary(pois)
+
+# Extract survival curves by strata using survfit
+surv_fit = survfit(cox, data = df)
+
+# Plot cumulative hazard functions by gender (Cox model)
+ggsurvplot(surv_fit, 
+           data = df,
+           fun = "cumhaz",
+           conf.int = TRUE,
+           palette = c("red", "blue"),
+           ggtheme = theme_minimal(),
+           title = "Cumulative Hazard Functions by Gender - Cox Model",
+           xlab = "Time",
+           ylab = "Cumulative Hazard",
+           legend.title = "Gender",
+           legend.labs = c("Female", "Male"))
+
+# Create prediction data for gender = 0 (Female)
+pred_female <- data.frame(
+  ages = mean(df_pois$ages),
+  gender = 0,
+  surgery = mean(df_pois$surgery),
+  BMI = mean(df_pois$BMI),
+  protein_intake = mean(df_pois$protein_intake),
+  calorie_intake = mean(df_pois$calorie_intake),
+  time = factor(c(1,3,6)),
+  BMI_T0 = mean(df_pois$BMI_T0),
+  BMI_T1 = mean(df_pois$BMI_T1),
+  BMI_T3 = mean(df_pois$BMI_T3)
+)
+
+# Create prediction data for gender = 1 (Male)
+pred_male <- pred_female
+pred_male$gender <- 1
+
+# Get predictions for both genders
+hazard_female <- predict(pois, newdata = pred_female, type = "response")
+hazard_male <- predict(pois, newdata = pred_male, type = "response")
+
+# Create data frame for plotting
+plot_data <- data.frame(
+  time = c(0, 1, 3, 6, 0, 1, 3, 6),
+  gender = factor(rep(c("Female", "Male"), each = 4)),
+  cumhaz = c(
+    0, cumsum(hazard_female),  # Female cumulative hazards
+    0, cumsum(hazard_male)     # Male cumulative hazards
+  )
+)
+
+# Create the plot
+ggplot(plot_data, aes(x = time, y = cumhaz, color = gender, fill = gender)) +
+  geom_step(linewidth = 1) +
+  scale_color_manual(values = c("Female" = "red", "Male" = "blue")) +
+  scale_fill_manual(values = c("Female" = "red", "Male" = "blue")) +
+  labs(
+    title = "Cumulative Hazard Functions by Gender - Poisson Model",
+    x = "Time",
+    y = "Cumulative Hazard"
+  ) +
+  ylim(0, 0.25) +
+  theme_minimal()
+
 ################################################################################
 ################################################################################
 ######################### time varying coefficient #############################
@@ -320,3 +382,4 @@ pois = glm(status ~ 0 + time + BMI, family = poisson, data = df_pois)
 
 summary(cox)
 summary(pois)
+
