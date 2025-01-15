@@ -246,87 +246,92 @@ ggsurvplot(surv_fit,
 ############################ Stratified Model ##################################
 ################################################################################
 ################################################################################
-# note that for convenience, no new dataset is created
-cox = coxph(Surv(time, status) ~ ages + 
-                                 strata(gender) + 
-                                 BMI + 
-                                 protein_intake + 
-                                 calorie_intake,
-            data = df, 
-            ties = 'breslow')
-pois = glm(status ~ 0 +
-                    ages + 
-                    time +
-                    gender:time +
+cox_strat = coxph(Surv(time, status) ~ ages + 
+                    strata(gender) + 
                     BMI + 
                     protein_intake + 
-                    calorie_intake, 
-           family = poisson, 
-           data = df_pois)
+                    calorie_intake,
+                  data = df, 
+                  ties = 'breslow')
 
-summary(cox)
-summary(pois)
+pois_strat = glm(status ~ 0 +
+                   ages + 
+                   time +           # factor-coded intervals
+                   gender:time +    # so each gender gets own baseline hazard path
+                   BMI + 
+                   protein_intake + 
+                   calorie_intake, 
+                 family = poisson, 
+                 data   = df_pois)
 
-# Extract survival curves by strata using survfit
-surv_fit = survfit(cox, data = df)
+summary(cox_strat)
+summary(pois_strat)
 
-# Plot cumulative hazard functions by gender (Cox model)
-ggsurvplot(surv_fit, 
+# -----------------------------------------------------
+# 1) Cox: extract stratum-specific baseline hazards
+# -----------------------------------------------------
+surv_strat = survfit(cox_strat, data = df)
+
+# This ggsurvplot shows separate baseline hazards for female vs male
+ggsurvplot(surv_strat, 
            data = df,
            fun = "cumhaz",
            conf.int = TRUE,
            palette = c("red", "blue"),
            ggtheme = theme_minimal(),
-           title = "Cumulative Hazard Functions by Gender - Cox Model",
+           title = "Cumulative Hazard by Gender (Cox Model)",
            xlab = "Time",
            ylab = "Cumulative Hazard",
            legend.title = "Gender",
            legend.labs = c("Female", "Male"))
 
-# Create prediction data for gender = 0 (Female)
-pred_female <- data.frame(
-  ages = mean(df_pois$ages),
-  gender = 0,
-  surgery = mean(df_pois$surgery),
-  BMI = mean(df_pois$BMI),
-  protein_intake = mean(df_pois$protein_intake),
-  calorie_intake = mean(df_pois$calorie_intake),
-  time = factor(c(1,3,6)),
-  BMI_T0 = mean(df_pois$BMI_T0),
-  BMI_T1 = mean(df_pois$BMI_T1),
-  BMI_T3 = mean(df_pois$BMI_T3)
+
+# -----------------------------------------------------
+# 2) Poisson: generate lines for each gender
+# -----------------------------------------------------
+# To replicate how Cox does separate baselines, let's fix the *other* covariates
+# at their means. We do so for each gender, for times {1,3,6}, and sum hazards.
+df_means = colMeans(df[, c("ages","BMI","protein_intake","calorie_intake")])
+
+# For female: gender=0
+pred_female = data.frame(
+  ages           = df_means["ages"],
+  BMI            = df_means["BMI"],
+  protein_intake = df_means["protein_intake"],
+  calorie_intake = df_means["calorie_intake"],
+  gender         = 0,
+  time           = factor(c(1,3,6), levels = c(1,3,6))
 )
 
-# Create prediction data for gender = 1 (Male)
-pred_male <- pred_female
-pred_male$gender <- 1
+# For male: gender=1
+pred_male = pred_female
+pred_male$gender = 1
 
-# Get predictions for both genders
-hazard_female <- predict(pois, newdata = pred_female, type = "response")
-hazard_male <- predict(pois, newdata = pred_male, type = "response")
+# Get interval-specific hazard predictions
+haz_female = predict(pois_strat, newdata = pred_female, type = "response")
+haz_male   = predict(pois_strat, newdata = pred_male,   type = "response")
 
-# Create data frame for plotting
-plot_data <- data.frame(
-  time = c(0, 1, 3, 6, 0, 1, 3, 6),
-  gender = factor(rep(c("Female", "Male"), each = 4)),
-  cumhaz = c(
-    0, cumsum(hazard_female),  # Female cumulative hazards
-    0, cumsum(hazard_male)     # Male cumulative hazards
-  )
+# Build cumulative hazards
+cum_female = c(0, cumsum(haz_female))
+cum_male   = c(0, cumsum(haz_male))
+
+# Create data frame for ggplot
+plot_data_pois = data.frame(
+  time   = rep(c(0,1,3,6), 2),
+  gender = rep(c("Female","Male"), each = 4),
+  cumhaz = c(cum_female, cum_male)
 )
 
-# Create the plot
-ggplot(plot_data, aes(x = time, y = cumhaz, color = gender, fill = gender)) +
-  geom_step(linewidth = 1) +
+# Plot with two lines. Use group=gender to ensure two distinct steps.
+ggplot(plot_data_pois, aes(x = time, y = cumhaz, color = gender, group = gender)) +
+  geom_step(size = 1) +
   scale_color_manual(values = c("Female" = "red", "Male" = "blue")) +
-  scale_fill_manual(values = c("Female" = "red", "Male" = "blue")) +
-  labs(
-    title = "Cumulative Hazard Functions by Gender - Poisson Model",
-    x = "Time",
-    y = "Cumulative Hazard"
-  ) +
-  ylim(0, 0.25) +
+  labs(title = "Cumulative Hazard by Gender (Poisson Model)",
+       x = "Time",
+       y = "Cumulative Hazard") +
+  coord_cartesian(ylim = c(0, 0.25)) +
   theme_minimal()
+
 
 ################################################################################
 ################################################################################
